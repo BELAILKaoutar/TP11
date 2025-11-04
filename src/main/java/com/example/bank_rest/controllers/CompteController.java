@@ -1,63 +1,56 @@
 package com.example.bank_rest.controllers;
-
+import com.example.bank_rest.dto.ClientDTO;
+import com.example.bank_rest.dto.CompteMobileDTO;
+import com.example.bank_rest.dto.CompteSoldeDTO;
 import com.example.bank_rest.entities.Compte;
+
 import com.example.bank_rest.repositories.CompteRepository;
 
-import io.swagger.v3.oas.models.media.MediaType;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/banque")
+@RequestMapping("/banque/comptes")
 public class CompteController {
-    
-    @Autowired
-    private CompteRepository compteRepository;
-    
-    // READ: Récupérer tous les comptes (JSON et XML)
-    @GetMapping(value = "/comptes", produces = { "application/json", "application/xml" })
-    public List<Compte> getAllComptes() {
-        return compteRepository.findAll();
+
+    private final CompteRepository compteRepository;
+
+    public CompteController(CompteRepository compteRepository) {
+        this.compteRepository = compteRepository;
     }
-    
-    // READ: Récupérer un compte par son identifiant (JSON et XML)
-    @GetMapping(value = "/comptes/{id}", produces = { "application/json", "application/xml" })
-    public ResponseEntity<Compte> getCompteById(@PathVariable Long id) {
-        return compteRepository.findById(id)
-        .map(compte -> ResponseEntity.ok().body(compte))
-        .orElse(ResponseEntity.notFound().build());
+
+    // Endpoint pour récupérer le client d’un compte (DTO)
+    @GetMapping("/{id}/client")
+    public ClientDTO getClientByCompte(@PathVariable Long id) {
+        Compte compte = compteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Compte non trouvé"));
+        return new ClientDTO(
+                compte.getClient().getNom(),
+                compte.getClient().getPrenom()
+        );
     }
-    
-    // CREATE: Ajouter un nouveau compte (JSON et XML)
-    @PostMapping(value = "/comptes",  consumes = { "application/json", "application/xml" })
-    public Compte createCompte(@RequestBody Compte compte) {
-        return compteRepository.save(compte);
+
+    // Projection : solde uniquement
+    @GetMapping("/solde")
+    public List<CompteSoldeDTO> getComptesSolde() {
+        return compteRepository.findAll()
+                .stream()
+                .map(c -> new CompteSoldeDTO(c.getSolde()))
+                .collect(Collectors.toList());
     }
-    
-    // UPDATE: Mettre à jour un compte existant (JSON et XML)
-    @PutMapping(value = "/comptes/{id}", consumes = { "application/json", "application/xml" }, produces = { "application/json", "application/xml" })
-    public ResponseEntity<Compte> updateCompte(@PathVariable Long id, @RequestBody Compte compteDetails) {
-        return compteRepository.findById(id)
-        .map(compte -> {
-            compte.setSolde(compteDetails.getSolde());
-            compte.setDateCreation(compteDetails.getDateCreation());
-            compte.setType(compteDetails.getType());
-            Compte updatedCompte = compteRepository.save(compte);
-            return ResponseEntity.ok().body(updatedCompte);
-        }).orElse(ResponseEntity.notFound().build());
-    }
-    
-    // DELETE: Supprimer un compte
-    @DeleteMapping("/comptes/{id}")
-    public ResponseEntity<Void> deleteCompte(@PathVariable Long id) {
-        return compteRepository.findById(id)
-        .map(compte -> {
-            compteRepository.delete(compte);
-            return ResponseEntity.ok().<Void>build();
-        }).orElse(ResponseEntity.notFound().build());
+
+    // Projection : solde + type
+    @GetMapping("/mobile")
+    public List<CompteMobileDTO> getComptesMobile() {
+        return compteRepository.findAll()
+                .stream()
+                .map(c -> new CompteMobileDTO(c.getSolde(), c.getType()))
+                .collect(Collectors.toList());
     }
 }
+
